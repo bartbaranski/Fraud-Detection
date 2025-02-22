@@ -1,0 +1,259 @@
+---
+title: "Fraud Detection"
+author: "Bartlomiej Baranski"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+In this project, I use transaction data to detect fraud. The project covers:
+
+1. Loading and preparing the data
+2. Balancing the dataset
+3. Splitting data into training and testing sets
+4. Building a Random Forest model
+5. Evaluating the model
+6. Interactive Shiny app for result presentation
+
+W tym projekcie wykorzystuję dane transakcyjne do wykrywania oszustw. Projekt obejmuje:
+
+1. Wczytanie i przygotowanie danych
+2. Balansowanie zbioru danych
+3. Podział danych na zbiór treningowy i testowy
+4. Budowę modelu Random Forest
+5. Ewaluację modelu
+6. Interaktywną aplikację Shiny do prezentacji wyników
+
+## Dataset
+https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud/data
+
+
+## Step 1: Load Libraries and Data
+
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Polski: Wczytanie niezbędnych bibliotek oraz danych z pliku CSV.
+# English: Loading necessary libraries and importing data from a CSV file.
+library(tidyverse)  # Do manipulacji danymi i wizualizacji / For data manipulation and visualization
+
+# Wczytanie danych / Load data from CSV file
+df <- read.csv("creditcard.csv")
+# Wyświetlenie struktury danych / Check the structure of the data
+str(df)
+```
+
+## Step 2: Data Preparation
+
+```{r}
+# Polski: Konwersja zmiennej 'Class' na typ faktorowy oraz sprawdzenie rozkładu klas.
+# English: Converting the 'Class' variable to a factor and checking class distribution.
+df$Class <- as.factor(df$Class)
+table(df$Class)
+
+```
+
+## Step 3: Data Preparation (Oversampling)
+
+```{r}
+# Polski: Ze względu na bardzo niezrównoważony zbiór danych używamy pakietu ROSE do oversamplingu.
+# English: Due to the highly imbalanced dataset, we use the ROSE package for oversampling.
+if (!require(ROSE)) install.packages("ROSE", repos = "https://cran.rstudio.com")
+library(ROSE)
+
+df_balanced <- ROSE(Class ~ ., data = df, seed = 123)$data
+table(df_balanced$Class)
+
+```
+## Step 4: Train-Test Split
+
+```{r}
+# Polski: Podział danych na zbiór treningowy (70%) oraz testowy (30%) przy użyciu pakietu caret.
+# English: Splitting the balanced dataset into training (70%) and testing (30%) sets using the caret package.
+library(caret)
+set.seed(123)
+trainIndex <- createDataPartition(df_balanced$Class, p = 0.7, list = FALSE)
+trainData <- df_balanced[trainIndex, ]
+testData <- df_balanced[-trainIndex, ]
+
+```
+
+## Step 5: Building the ML Model (Random Forest)
+
+
+```{r}
+# Polski: Budujemy model Random Forest do klasyfikacji transakcji.
+# English: Building a Random Forest model to classify transactions.
+library(randomForest)
+set.seed(123)
+rf_model <- randomForest(Class ~ ., data = trainData, ntree = 100)
+
+```
+
+
+## Step 6: Model Evaluation
+
+```{r}
+# Polski: Predykcja na zbiorze testowym oraz ocena modelu przy użyciu macierzy pomyłek.
+# English: Predicting on the test set and evaluating the model using a confusion matrix.
+pred <- predict(rf_model, testData)
+confusionMatrix(pred, testData$Class)
+
+```
+
+
+## Logistic Regression
+
+
+```{r}
+# Polski: Trenowanie modelu regresji logistycznej.
+# English: Training the logistic regression model.
+library(caret)
+set.seed(123)
+log_model <- train(Class ~ ., data = trainData, method = "glm", family = "binomial")
+
+# Polski: Predykcja na zbiorze testowym dla regresji logistycznej.
+# English: Making predictions on the test set for logistic regression.
+pred_log <- predict(log_model, testData)
+
+# Polski: Ocena modelu regresji logistycznej.
+# English: Evaluating the logistic regression model.
+confusionMatrix(pred_log, testData$Class)
+
+
+```
+
+
+
+## Model XGBoost
+
+```{r}
+library(xgboost)
+
+# Polski: Przygotowanie danych: usuwamy kolumnę Class i konwertujemy etykiety na 0/1.
+# English: Preparing data: remove the Class column and convert labels to 0/1.
+train_matrix <- xgb.DMatrix(data = as.matrix(trainData[, !names(trainData) %in% "Class"]),
+                            label = as.numeric(trainData$Class) - 1)
+test_matrix <- xgb.DMatrix(data = as.matrix(testData[, !names(testData) %in% "Class"]),
+                           label = as.numeric(testData$Class) - 1)
+
+# Polski: Definiowanie parametrów modelu XGBoost.
+# English: Defining parameters for the XGBoost model.
+params <- list(
+  objective = "binary:logistic",
+  eval_metric = "auc"
+)
+
+# Polski: Trenowanie modelu XGBoost.
+# English: Training the XGBoost model.
+set.seed(123)
+xgb_model <- xgb.train(params, train_matrix, nrounds = 100)
+
+# Polski: Predykcja przy użyciu modelu XGBoost.
+# English: Making predictions using the XGBoost model.
+pred_xgb_prob <- predict(xgb_model, test_matrix)
+pred_xgb <- ifelse(pred_xgb_prob > 0.5, 1, 0)  # Zakładamy, że klasa 0 to pozytywna / Assuming class 0 is positive
+
+# Polski: Ocena modelu XGBoost.
+# English: Evaluating the XGBoost model.
+confusionMatrix(as.factor(pred_xgb), testData$Class)
+
+
+```
+
+## Trening modelu drzewa decyzyjnego (Decision Tree)
+
+
+```{r}
+# Polski: Instalacja i ładowanie pakietu rpart (jeśli nie jest zainstalowany).
+# English: Installing and loading the rpart package (if not already installed).
+if (!require(rpart)) install.packages("rpart", repos = "https://cran.rstudio.com")
+library(rpart)
+
+# Polski: Trenowanie modelu drzewa decyzyjnego.
+# English: Training the decision tree model.
+set.seed(123)
+dt_model <- rpart(Class ~ ., data = trainData, method = "class")
+
+# Polski: Predykcja na zbiorze testowym przy użyciu drzewa decyzyjnego.
+# English: Making predictions on the test set using the decision tree.
+pred_dt <- predict(dt_model, testData, type = "class")
+
+# Polski: Ocena modelu drzewa decyzyjnego.
+# English: Evaluating the decision tree model.
+confusionMatrix(pred_dt, testData$Class)
+
+
+```
+
+## Conclusion
+In this project, I performed the following steps:
+
+* Loaded and prepared the data, converting the target variable to a factor.
+* Due to the imbalanced nature of the dataset, we applied oversampling using the ROSE package.
+* We split the data into training and testing sets.
+* We built several models including Random Forest, logistic regression, XGBoost, and a decision tree using appropriate R packages.
+* We evaluated the models using confusion matrices, which allowed us to compare their performance.
+
+## Results
+
+# Random Forest:
+
+* Confusion Matrix:
+
+      + Class 0: 42,685 correct predictions, 25 errors
+      + Class 1: 105 errors, 42,626 correct predictions
+      
+* Metrics: Accuracy = 0.9985, Sensitivity = 0.9975, Specificity = 0.9994, Kappa = 0.997.
+* Conclusion: The Random Forest model demonstrates very high performance, almost perfectly distinguishing between the two classes.
+
+
+# Logistic Regression:
+
+* Confusion Matrix:
+
+      + Class 0: 42,089 correct, 4,768 errors
+      + Class 1: 701 errors, 37,883 correct
+      
+* Metrics: Accuracy = 0.936, Sensitivity = 0.9836, Specificity = 0.8882, Kappa = 0.872.
+* Conclusion: Logistic regression provides good results, but it is less precise in identifying class 1, leading to lower specificity compared to Random Forest.
+
+# XGBoost:
+
+* Confusion Matrix:
+
+      + Class 0: 42,767 correct, 56 errors
+      + Class 1: 23 errors, 42,595 correct
+      
+* Metrics: Accuracy = 0.9991, Sensitivity = 0.9995, Specificity = 0.9987, Kappa = 0.9982.
+* Conclusion: XGBoost achieves the highest performance with near-perfect accuracy, suggesting excellent ability to distinguish between classes.
+
+# Decision Tree:
+
+* Confusion Matrix:
+
+      + Class 0: 40,996 correct, 1,317 errors
+      + Class 1: 1,794 errors, 41,334 correct
+      
+* Metrics: Accuracy = 0.9636, Sensitivity = 0.9581, Specificity = 0.9691, Kappa = 0.9272.
+* Conclusion: The decision tree model also performs very well, though slightly inferior to Random Forest and XGBoost, reflecting its simpler approach to splitting the data.
+
+In summary, the Random Forest and XGBoost models achieve the highest metrics, making them ideal for fraud detection tasks. Logistic regression and the decision tree also show respectable performance, though with slightly lower effectiveness.
+
+
+
+```{r}
+saveRDS(rf_model, "rf_model.rds")
+saveRDS(log_model, "log_model.rds")
+saveRDS(xgb_model, "xgb_model.rds")
+saveRDS(dt_model, "dt_model.rds")
+
+```
+
