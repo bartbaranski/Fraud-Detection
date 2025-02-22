@@ -1,3 +1,7 @@
+
+<h2>Rmd file</h2>
+<p>https://bartbaranski.github.io/Fraud-Detection/FraudDetection.html</p> 
+
 <h2>Description</h2>
 <p>
   This project focuses on detecting fraudulent transactions using a combination of data preprocessing, oversampling techniques, multiple machine learning models, and an interactive Shiny application for result visualization. The entire process is documented step by step in an R Markdown file, ensuring clarity and reproducibility.
@@ -45,14 +49,4 @@
   <li><strong>Data Exploration:</strong> Users can interactively select variables to visualize their distributions and see summary statistics of the balanced dataset.</li>
   <li><strong>Model Evaluation:</strong> Users can choose from the pre-trained models (loaded from saved RDS files) to view their confusion matrices and performance metrics.</li>
   <li><strong>Documentation:</strong> Detailed, step-by-step instructions and code are provided in the R Markdown file for transparency and reproducibility.</li>
-</ul>
-
-<h2>Future Improvements</h2>
-<ul>
-  <li>Integrate additional machine learning models and ensemble techniques to potentially improve predictive accuracy.</li>
-  <li>Optimize resource usage to handle larger datasets or reduce memory consumption.</li>
-  <li>Enhance the user interface and user experience of the Shiny application for better accessibility and visual appeal.</li>
-  <li>Implement real-time data streaming to enable dynamic fraud detection in live scenarios.</li>
-  <li>Add security features such as user authentication and role-based access control.</li>
-  <li>Improve logging and error handling for easier debugging and maintenance.</li>
 </ul>
